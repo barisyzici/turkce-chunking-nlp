@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Sanal ortam
+venv/
+env/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# İşletim sistemi
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# UD Treebank ham verileri (büyük dosyalar - otomatik indiriliyor)
+data/ud_turkish_train.conllu
+data/ud_turkish_dev.conllu
+data/ud_turkish_test.conllu
+
+# İşlenmiş veri dosyaları (büyük - prepare_data.py ile üretiliyor)
+data/train.conll
+data/test.conll
+
+# Model çıktı görselleri (chunker.py ile üretiliyor)
+report/
+
+# LaTeX yardımcı dosyaları
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk

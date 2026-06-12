@@ -1,0 +1,445 @@
+\documentclass[12pt,a4paper]{article}
+
+% =====================================================
+% PAKETLER
+% =====================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[turkish]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{multirow}
+\usepackage{setspace}
+
+% =====================================================
+% SAYFA DÜZENİ
+% =====================================================
+\geometry{
+    top=2.5cm, bottom=2.5cm,
+    left=3cm,  right=2.5cm
+}
+\onehalfspacing
+
+% =====================================================
+% BAŞLIK STİLİ
+% =====================================================
+\titleformat{\section}{\large\bfseries}{}{0em}{\thesection.\quad}
+\titleformat{\subsection}{\normalsize\bfseries}{}{0em}{\thesubsection.\quad}
+
+% =====================================================
+% ÜSTBILGI / ALTBILGI
+% =====================================================
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small NLP Projesi -- Chunking}
+\lhead{\small Bursa Teknik Üniversitesi}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% =====================================================
+% KOD STİLİ
+% =====================================================
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray},
+    stringstyle=\color{orange!80!black},
+    frame=single,
+    breaklines=true,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    showstringspaces=false,
+    captionpos=b,
+}
+
+% =====================================================
+% BELGE BAŞLADI
+% =====================================================
+\begin{document}
+
+% -------------------------------------------
+% KAPAK SAYFASI
+% -------------------------------------------
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+
+    {\Large \textbf{T.C.}\\[0.3em]
+     \textbf{BURSA TEKNİK ÜNİVERSİTESİ}\\[0.3em]
+     \textbf{Mühendislik ve Doğa Bilimleri Fakültesi}\\[0.3em]
+     \textbf{Bilgisayar Mühendisliği Bölümü}}
+
+    \vspace{1.5cm}
+    \vspace{2cm}
+
+    \rule{\linewidth}{1pt}\\[0.5em]
+    {\LARGE \textbf{Doğal Dil İşleme Projesi}}\\[0.5em]
+    {\Large \textbf{İsim ve Diğer Öbeklerin Saptanması (Chunking)}}\\[0.3em]
+    \rule{\linewidth}{1pt}
+
+    \vspace{1.5cm}
+
+    \begin{tabular}{ll}
+        \textbf{Ders:}    & Doğal Dil İşleme \\[0.5em]
+        \textbf{Dönem:}   & 2025 -- 2026 Bahar Dönemi \\[0.5em]
+        \textbf{Öğrenci:} & [AD SOYAD] \\[0.5em]
+        \textbf{Numara:}  & [ÖĞRENCİ NUMARASI] \\[0.5em]
+        \textbf{Grup Üyeleri:} & [VARSA DİĞER ÜYELERİN ADI SOYADI] \\[0.5em]
+        \textbf{Danışman:}& [HOCA ADI] \\
+    \end{tabular}
+
+    \vfill
+    {\large \today}
+\end{titlepage}
+
+
+% =====================================================
+% 1. GİRİŞ
+% =====================================================
+\section{Giriş}
+
+Bu proje, Bursa Teknik Üniversitesi Bilgisayar Mühendisliği Bölümü
+2025--2026 Bahar Dönemi Doğal Dil İşleme dersi kapsamında hazırlanmıştır.
+
+Projenin konusu \textbf{İsim ve Diğer Öbeklerin Saptanması (Chunking)} olarak belirlenmiştir.
+Chunking (ya da kısmi ayrıştırma), bir cümle içindeki kelimelerin hangi sözdizimsel gruba
+(öbeğe) ait olduğunu belirleyen bir Doğal Dil İşleme görevidir. Bu görevde:
+
+\begin{itemize}
+    \item \textbf{NP} (Noun Phrase / İsim Öbeği): İsimlerin oluşturduğu gruplar
+    \item \textbf{VP} (Verb Phrase / Eylem Öbeği): Fiillerin oluşturduğu gruplar
+    \item \textbf{ADVP} (Adverb Phrase / Zarf Öbeği): Zarfların oluşturduğu gruplar
+    \item \textbf{PP} (Prepositional Phrase / Edat Öbeği): Edatların oluşturduğu gruplar
+    \item \textbf{O}: Herhangi bir öbeğe dahil olmayan kelimeler
+\end{itemize}
+
+etiketleri BIO (Beginning--Inside--Outside) formatında her kelimeye atanmaktadır.
+
+\subsection{BIO Etiketleme Formatı}
+
+BIO formatında her kelime üç durumdan birinde etiketlenir:
+\begin{itemize}
+    \item \textbf{B-X}: Bir X öbeğinin \textit{başlangıç} kelimesi
+    \item \textbf{I-X}: Bir X öbeğinin \textit{devam} kelimesi
+    \item \textbf{O}: Öbek dışı kelime
+\end{itemize}
+
+Örnek cümle ve CoNLL formatındaki etiketleme:
+
+\begin{table}[H]
+\centering
+\caption{CoNLL formatında örnek etiketleme}
+\begin{tabular}{cllll}
+\toprule
+\textbf{ID} & \textbf{FORM} & \textbf{CHUNK-OUTER} & \textbf{CHUNK-INNER} & \textbf{CLAUSE} \\
+\midrule
+1  & Dün         & B-ADVP & \_ & O \\
+2  & akşam       & I-ADVP & \_ & O \\
+3  & toplantıdan & B-NP   & B-RELCL & B-RELCL \\
+4  & erken       & I-NP   & I-RELCL & I-RELCL \\
+5  & çıkan       & I-NP   & I-RELCL & I-RELCL \\
+6  & öğrencinin  & I-NP   & \_ & O \\
+7  & ,           & O      & \_ & O \\
+8  & hocasının   & B-NP   & B-RELCL & B-RELCL \\
+9  & önerdiği    & I-NP   & I-RELCL & I-RELCL \\
+10 & makaleyi    & I-NP   & \_ & O \\
+11 & kütüphanede & B-NP   & \_ & B-COMPCL \\
+12 & dikkatlice  & B-ADVP & \_ & I-COMPCL \\
+13 & okuduğunu   & B-VP   & \_ & I-COMPCL \\
+14 & fark        & B-VP   & \_ & O \\
+15 & ettim       & I-VP   & \_ & O \\
+16 & .           & O      & \_ & O \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% =====================================================
+% 2. VERİ SETİ
+% =====================================================
+\section{Veri Seti}
+
+\subsection{Universal Dependencies Türkçe Treebank}
+
+Bu projede veri seti olarak \textbf{Universal Dependencies (UD) Turkish-BOUN Treebank}
+kullanılmıştır. Bu veri seti, Boğaziçi Üniversitesi tarafından hazırlanmış olup
+CoNLL-U formatında ayrıntılı Türkçe sözdizimsel etiketlemeler içermektedir
+\cite{ud_turkish}.
+
+Veri setinin temel özellikleri:
+
+\begin{table}[H]
+\centering
+\caption{Veri seti istatistikleri}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Bölüm} & \textbf{Cümle Sayısı} & \textbf{Token Sayısı} \\
+\midrule
+Eğitim (train) & 8.782 & 113.002 \\
+Test           &   979 &  12.210 \\
+\textbf{Toplam} & \textbf{9.761} & \textbf{125.212} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Veri Hazırlama}
+
+UD Treebank, CoNLL-U formatında UPOS (Universal Part-of-Speech) etiketleri içermektedir.
+Bu etiketler aşağıdaki kurala göre chunk etiketlerine dönüştürülmüştür:
+
+\begin{table}[H]
+\centering
+\caption{POS etiketi $\rightarrow$ Chunk etiketi dönüşüm kuralları}
+\begin{tabular}{ll}
+\toprule
+\textbf{UPOS Etiketleri} & \textbf{Chunk Türü} \\
+\midrule
+NOUN, PROPN, PRON, DET, ADJ, NUM & NP (İsim Öbeği) \\
+VERB, AUX                         & VP (Eylem Öbeği) \\
+ADV                               & ADVP (Zarf Öbeği) \\
+ADP                               & PP (Edat Öbeği) \\
+PUNCT, CONJ, CCONJ, SCONJ, diğer & O \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Etiket Dağılımı}
+
+Eğitim verisindeki etiket dağılımı aşağıdaki tabloda verilmiştir:
+
+\begin{table}[H]
+\centering
+\caption{Eğitim verisi etiket dağılımı}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Etiket} & \textbf{Token Sayısı} & \textbf{Oran (\%)} \\
+\midrule
+B-NP   & 27.690 & 24.50 \\
+I-NP   & 30.885 & 27.33 \\
+B-VP   & 18.216 & 16.12 \\
+I-VP   &  4.588 &  4.06 \\
+B-ADVP &  4.405 &  3.90 \\
+I-ADVP &    527 &  0.47 \\
+B-PP   &  2.222 &  1.97 \\
+I-PP   &     11 &  0.01 \\
+O      & 24.458 & 21.64 \\
+\midrule
+\textbf{Toplam} & \textbf{113.002} & \textbf{100.00} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% =====================================================
+% 3. YÖNTEM
+% =====================================================
+\section{Yöntem}
+
+\subsection{Öznitelik Mühendisliği}
+
+Her kelime için aşağıdaki öznitelikler çıkarılmıştır:
+
+\begin{itemize}
+    \item \textbf{Kelime öznitelikleri:} Kelimenin kendisi, küçük harf formu, büyük harf mi, baş harfi büyük mü, rakam mı, uzunluğu
+    \item \textbf{Suffix (son ekler):} Son 1, 2, 3 ve 4 karakter -- Türkçe eklemeli bir dil olduğundan morfolojik eklere dayalı bu öznitelikler çok kritiktir
+    \item \textbf{Prefix (ön ekler):} İlk 2 ve 3 karakter
+    \item \textbf{Bağlam penceresi:} Önceki 2 ve sonraki 2 kelime ile bunların özellikleri
+    \item \textbf{Cümle sınırları:} BOS (cümle başı), EOS (cümle sonu) bayrakları
+\end{itemize}
+
+\subsection{Model 1: Conditional Random Fields (CRF)}
+
+\textbf{Conditional Random Fields (Koşullu Rastsal Alanlar)}, dizi etiketleme
+problemleri için tasarlanmış istatistiksel bir modeldir. Naive Bayes ve Logistic
+Regression'dan farklı olarak her kelimeyi bağımsız sınıflandırmak yerine,
+komşu etiketler arasındaki bağımlılıkları da modelleyebilir. Bu özelliği
+chunking gibi ardışık etiketleme görevleri için CRF'yi ideal kılmaktadır.
+
+Model parametreleri:
+\begin{itemize}
+    \item Algoritma: L-BFGS (Limited-memory Broyden--Fletcher--Goldfarb--Shanno)
+    \item L1 düzenlileştirme katsayısı: $c_1 = 0.05$
+    \item L2 düzenlileştirme katsayısı: $c_2 = 0.05$
+    \item Maksimum iterasyon: 150
+\end{itemize}
+
+\subsection{Model 2: Naive Bayes}
+
+\textbf{Multinomial Naive Bayes}, Bayes teoremini temel alan istatistiksel bir sınıflandırıcıdır.
+Özellikler arasındaki bağımsızlık varsayımı yapsa da hızlı ve basit yapısıyla
+temel (baseline) model olarak kullanılmaktadır. CRF ile karşılaştırma amacıyla
+ikinci model olarak seçilmiştir.
+
+Model parametreleri:
+\begin{itemize}
+    \item Düzleştirme katsayısı: $\alpha = 0.1$
+    \item Öznitelik ölçekleme: MinMaxScaler (Naive Bayes negatif değer kabul etmez)
+\end{itemize}
+
+% =====================================================
+% 4. SONUÇLAR
+% =====================================================
+\section{Sonuçlar}
+
+\subsection{Model Karşılaştırması}
+
+\begin{table}[H]
+\centering
+\caption{Model başarı karşılaştırması}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Model} & \textbf{Accuracy} & \textbf{Macro F1} & \textbf{Weighted F1} \\
+\midrule
+CRF         & \textbf{0.9283} & \textbf{0.7755} & \textbf{0.9278} \\
+Naive Bayes & 0.5129          & 0.2019          & 0.4357          \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+CRF modeli, chunking gibi sıralı bağımlılıkların kritik önem taşıdığı bir görevde
+\textbf{\%92.83 doğruluk oranı} elde etmiştir. Naive Bayes ise her kelimeyi
+bağımsız değerlendirdiğinden \%51.29 ile sınırlı kalmıştır. Bu fark,
+komşu etiket bilgisinin chunking başarısındaki kritik rolünü açıkça göstermektedir.
+
+\subsection{CRF Sınıf Bazlı Metrikler}
+
+\begin{table}[H]
+\centering
+\caption{CRF modeli -- sınıf bazlı sonuçlar}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Etiket} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} & \textbf{Destek} \\
+\midrule
+B-ADVP & 0.8212 & 0.8097 & 0.8154 &   431 \\
+B-NP   & 0.9245 & 0.9316 & 0.9280 & 2.996 \\
+B-PP   & 0.9528 & 0.8441 & 0.8952 &   263 \\
+B-VP   & 0.9100 & 0.8784 & 0.8939 & 2.048 \\
+I-ADVP & 0.7692 & 0.6122 & 0.6818 &    49 \\
+I-NP   & 0.9186 & 0.9497 & 0.9338 & 3.456 \\
+I-PP   & 0.0000 & 0.0000 & 0.0000 &     1 \\
+I-VP   & 0.8699 & 0.8210 & 0.8447 &   391 \\
+O      & 0.9864 & 0.9864 & 0.9864 & 2.575 \\
+\midrule
+\textbf{Accuracy}     & \multicolumn{3}{c}{0.9283} & 12.210 \\
+\textbf{Macro avg}    & 0.7947 & 0.7592 & 0.7755 & 12.210 \\
+\textbf{Weighted avg} & 0.9279 & 0.9283 & 0.9278 & 12.210 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textit{Not: I-PP sınıfı test setinde yalnızca 1 örnekle temsil edildiğinden sıfır F1 skoru elde edilmiştir. Bu istatistiksel olarak anlamlı değildir.}
+
+\subsection{Grafiksel Sonuçlar}
+
+\subsubsection{CRF Karmaşıklık Matrisi}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.90\textwidth]{confusion_matrix_crf.png}
+    \caption{CRF modeli karmaşıklık matrisi (Confusion Matrix). Köşegen üzerindeki yüksek değerler modelin başarılı sınıflandırma yaptığını göstermektedir.}
+    \label{fig:cm_crf}
+\end{figure}
+
+\subsubsection{CRF Sınıf Bazlı Metrik Grafiği}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{metrics_crf.png}
+    \caption{CRF modeli -- her sınıf için Precision, Recall ve F1-Score değerleri.}
+    \label{fig:metrics_crf}
+\end{figure}
+
+\subsubsection{Naive Bayes Karmaşıklık Matrisi}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.90\textwidth]{confusion_matrix_nb.png}
+    \caption{Naive Bayes modeli karmaşıklık matrisi. Köşegen dışı değerlerin yüksekliği modelin birçok sınıfı birbirine karıştırdığını göstermektedir.}
+    \label{fig:cm_nb}
+\end{figure}
+
+\subsubsection{Model Karşılaştırma Grafiği}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.80\textwidth]{model_comparison.png}
+    \caption{CRF ve Naive Bayes modellerinin Accuracy, Macro F1 ve Weighted F1 skorları karşılaştırması.}
+    \label{fig:comparison}
+\end{figure}
+
+\subsection{Tartışma}
+
+CRF modeli tüm metriklerde Naive Bayes'i önemli ölçüde geride bırakmıştır.
+Bu sonucun temel nedenleri şöyle sıralanabilir:
+
+\begin{enumerate}
+    \item \textbf{Dizi bağımlılığı:} CRF, bir kelimenin etiketini belirlerken komşu etiketleri
+    de göz önünde bulundurur. Chunking'de bir NP öbeği içindeki kelimelerin birbirini
+    takip etmesi gibi dizi kalıpları bu sayede yakalanabilmektedir.
+
+    \item \textbf{Türkçe'ye uygunluk:} Türkçe eklemeli bir dildir; kelimenin sonu çoğu zaman
+    sözdizimsel rolünü belirler. CRF'nin suffix özniteliklerini etkili biçimde kullanması
+    Türkçe'de özellikle faydalı olmuştur.
+
+    \item \textbf{Naive Bayes'in sınırlılıkları:} Naive Bayes bağımsızlık varsayımı nedeniyle
+    dizi içi bağımlılıkları modelleyemez. Bu nedenle özellikle B-VP, I-VP, I-ADVP gibi
+    ardışıklık gerektiren sınıflarda başarısız olmuştur.
+\end{enumerate}
+
+% =====================================================
+% 5. SONUÇ
+% =====================================================
+\section{Sonuç}
+
+Bu projede Türkçe metinler için chunking görevi gerçekleştirilmiştir. Universal Dependencies
+Turkish-BOUN Treebank kullanılarak 9.761 cümlelik bir veri seti hazırlanmıştır. İki farklı
+makine öğrenmesi modeli eğitilmiş ve karşılaştırılmıştır:
+
+\begin{itemize}
+    \item \textbf{CRF modeli \%92.83 doğruluk oranı} elde ederek chunking için güçlü bir
+    performans sergilemiştir. Özellikle B-NP (\%93 F1), I-NP (\%93 F1) ve O (\%99 F1)
+    sınıflarında çok başarılı sonuçlar alınmıştır.
+
+    \item \textbf{Naive Bayes modeli \%51.29 doğruluk oranı} ile kalmıştır. Dizi
+    bağımlılıklarını yakalayamaması bu düşük performansın temel nedenidir.
+\end{itemize}
+
+Sonuçlar, dizi etiketleme problemlerinde CRF gibi bağlam duyarlı modellerin
+klasik istatistiksel modellere olan üstünlüğünü açıkça ortaya koymaktadır.
+
+% =====================================================
+% KAYNAKÇA
+% =====================================================
+\begin{thebibliography}{9}
+
+\bibitem{ud_turkish}
+Türk, U., Atmaca, F., Özateş, Ş. B., Köse, A., Küçükçiloğlu, S., Eryiğit, G.,
+\& Özgür, A. (2022).
+\textit{Resources for Turkish Dependency Parsing: Introducing the BOUN Treebank
+and the BoAT Annotation Tool}.
+Language Resources and Evaluation, 56, 579--625.
+
+\bibitem{lafferty2001crf}
+Lafferty, J., McCallum, A., \& Pereira, F. (2001).
+\textit{Conditional Random Fields: Probabilistic Models for Segmenting and
+Labeling Sequence Data}.
+In Proceedings of ICML, 282--289.
+
+\bibitem{jurafsky2023slp}
+Jurafsky, D., \& Martin, J. H. (2023).
+\textit{Speech and Language Processing} (3rd ed. draft).
+\url{https://web.stanford.edu/~jurafsky/slp3/}
+
+\end{thebibliography}
+
+\end{document}
