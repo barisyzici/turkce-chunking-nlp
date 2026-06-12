@@ -1,7 +1,7 @@
 # 🧠 Türkçe Metin Parçalama (Chunking) Projesi
 
 > **Bursa Teknik Üniversitesi — Doğal Dil İşleme Dersi**  
-> 2025–2026 Bahar Dönemi Bitirme Projesi
+> 2025–2026 Bahar Dönemi Projesi
 
 ---
 
